@@ -11,16 +11,6 @@ import sys
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
-def get_unique_filename(fullname):
-  if os.path.exists(fullname):
-    fullname_test = fullname + '.copy'
-    i = 0
-    while os.path.exists( fullname_test ):
-      fullname_test = "{0}.copy({1})".format(fullname, i)
-      i += 1
-    fullname = fullname_test
-  return fullname
-
 class PostError(Exception):
   pass
 
@@ -77,6 +67,14 @@ class UploadHandler(BaseHTTPRequestHandler):
                               environ={'REQUEST_METHOD': 'POST'})
       else:
         raise PostError
+
+      def get_unique_filename(filename):
+        filename_unique = filename
+        i = 1
+        while os.path.exists(filename_unique):
+          filename_unique = "{0}-copy{1}".format(filename, i)
+          i += 1
+        return filename_unique
 
       cwd = os.path.abspath('.')
       fs_up = fs[self.kFileFieldName]
