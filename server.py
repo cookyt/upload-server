@@ -27,10 +27,8 @@ class UploadHandler(BaseHTTPRequestHandler):
       if uploaded_file_name == None:
         return ''
       else:
-        html_parser = HTMLParser.HTMLParser()
-        html_safe_filename = html_parser.unescape(uploaded_file_name)
         return ('<p><em>File uploaded under name: {0}</em></p>'
-               .format(html_safe_filename))
+               .format(cgi.escape(uploaded_file_name)))
 
     form = """
       <html>
