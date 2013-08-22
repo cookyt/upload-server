@@ -63,6 +63,30 @@ class UploadHandler(BaseHTTPRequestHandler):
       self.send_error(404, 'File Not Found: {0}'.format(self.path))
 
   def do_POST(self):
+    def get_unique_local_filename(filename):
+      cwd = os.path.abspath('.')
+      filename = os.path.split(filename)[1] # strip the path
+      local_filename = os.path.join(cwd, filename)
+
+      unique_filename = local_filename
+      i = 1
+      while os.path.exists(unique_filename):
+        unique_filename = "{0}-copy{1}".format(local_filename, i)
+        i += 1
+
+      return unique_filename
+
+    def save_file(filename, data):
+      sys.stderr.write("Saving file `{0}'... ".format(filename))
+      with open(filename, 'wb') as outfile:
+        outfile.write(data.read())
+      sys.stderr.write("[saved]\n")
+
+    def send_response(filename):
+      self.send_response(200)
+      self.end_headers()
+      self.write_upload_form(os.path.split(filename)[1])
+
     try:
       content_type, options = cgi.parse_header(self.headers['content-type'])
       if content_type == 'multipart/form-data':
@@ -70,34 +94,17 @@ class UploadHandler(BaseHTTPRequestHandler):
         # the 'headers' object, but as the FieldStorage object was designed for
         # CGI, absense of 'POST' value in environ will prevent the object from
         # using the 'fp' argument
-        fs = cgi.FieldStorage(fp = self.rfile,
-                              headers = self.headers,
-                              environ={'REQUEST_METHOD': 'POST'})
+        fields = cgi.FieldStorage(fp = self.rfile,
+                                  headers = self.headers,
+                                  environ={'REQUEST_METHOD': 'POST'})
       else:
         raise PostError("Content is not `multipart/form-data'. "+
                         "Got `{0}' instead".format(content_type))
 
-      def get_unique_filename(filename):
-        filename_unique = filename
-        i = 1
-        while os.path.exists(filename_unique):
-          filename_unique = "{0}-copy{1}".format(filename, i)
-          i += 1
-        return filename_unique
-
-      cwd = os.path.abspath('.')
-      fs_up = fs[self.file_field_name]
-      filename = os.path.split(fs_up.filename)[1] # strip the path
-      fullname = get_unique_filename(os.path.join(cwd, filename))
-
-      sys.stderr.write("Saving file `{0}'... ".format(fullname))
-      with open(fullname, 'wb') as outfile:
-        outfile.write(fs_up.file.read())
-      sys.stderr.write("[saved]\n")
-
-      self.send_response(200)
-      self.end_headers()
-      self.write_upload_form(os.path.split(fullname)[1])
+      upload_field = fields[self.file_field_name]
+      local_filename = get_unique_local_filename(upload_field.filename)
+      save_file(local_filename, upload_field.file)
+      send_response(local_filename)
 
     except Exception as e:
       sys.stderr.write(str(e) + '\n')
