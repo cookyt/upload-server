@@ -111,7 +111,6 @@ class UploadHandler(BaseHTTPRequestHandler):
 def main():
   kDefaultPort= 8000
   port_number = int(sys.argv[1]) if len(sys.argv) > 1 else kDefaultPort
-  server = None
   try:
     server = HTTPServer(('', port_number), UploadHandler)
     sys.stderr.write('starting HTTP file upload server on port {0}...\n'
