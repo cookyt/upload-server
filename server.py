@@ -117,23 +117,38 @@ class UploaderApp(object):
   def GET(self, environ, response):
     return SendUploadForm(response)
 
-def main():
-  logging.basicConfig(level=logging.INFO)
 
+def ParseArguments():
+  ''' Uses argparse to parse command line arguments and flags in sys.argv for
+  the cmd-line interface to uploadserver.
+  Returns an argparse namespace with the parsed arguments.
+  '''
   parser = argparse.ArgumentParser(
       description=('A simple HTTP server which allows files to be uploaded '
-                   'to the directory the server was started in.')
+                   'to the directory the server was started in.'),
+  )
+  parser.add_argument('-h', '--host',
+      help=('The host to listen on. Defaults to "0.0.0.0" to listen on all '
+            'hosts. This allows anyone on the same network to reach '
+            'the server.'),
+      default='0.0.0.0',
   )
   parser.add_argument('-p', '--port',
       help='The port number to start the server on. Default is 8000.',
       type=int,
       default=8000,
   )
-  args = parser.parse_args()
+  return parser.parse_args()
 
-  httpd = make_server('', args.port, UploaderApp())
-  logging.info('starting HTTP file upload server on port %d', args.port)
+
+def main():
+  logging.basicConfig(level=logging.INFO)
+  args = ParseArguments()
+  logging.info('Starting HTTP file upload server on host %r and port %d',
+               args.host, args.port)
+  httpd = make_server(args.host, args.port, UploaderApp())
   httpd.serve_forever()
+
 
 if __name__ == '__main__':
   main()
