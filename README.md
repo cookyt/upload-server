@@ -6,4 +6,4 @@ be used as a CLI tool like python's SimpleHTTPServer
 
 Use like:
 
-    python2 server.py [--port=8000]
+    python2 uploadserver.py [--port=8000]
