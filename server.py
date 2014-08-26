@@ -1,17 +1,30 @@
 #!/usr/bin/python2
 
+# Single-file HTTP server for uploading files. Meant to be a quick and dirty
+# solution to transfering files on a local network. Uses just the python2.7
+# stdlib.
+
+# OUTSTANDING ISSUES
+# ==================
+# + No OSS license yet. Plan to add MIT license. Don't have access to internet
+#   right now to do so.
+# + Interfaces w/ OS don't catch errors, so, for example, if this fails to save
+#   a file, it'll kill the application.
+# + Should add a flag to denote which directory to save files in, rather than
+#   just using the CWD.
+# + Free-standing functions should be folded into private methods of UploaderApp
+
 import HTMLParser
+import argparse
 import cgi
 import httplib
 import logging
 import os
-import sys
 
 from wsgiref.simple_server import make_server
 
 
-kFileFieldName = 'upfile'
-
+FILE_FIELD_NAME = 'upfile'
 
 def SendUploadForm(response, uploaded_file_name=None):
   response('200 OK', [('Content-Type','text/html')])
@@ -34,7 +47,7 @@ def SendUploadForm(response, uploaded_file_name=None):
         </form>
       </body>
     </html>
-  '''.format(uploaded_file_message, kFileFieldName)
+  '''.format(uploaded_file_message, FILE_FIELD_NAME)
 
 
 def SendErrorPage(response, error_code, message):
@@ -73,25 +86,30 @@ def SaveFile(filename, data):
 
 
 class UploaderApp(object):
+  ''' Simple WSGI CGI app which controls the upload process. '''
+
   def __call__(self, environ, response):
     if environ['PATH_INFO'] != '/':
       error_message = 'Not found: %s' % (environ['PATH_INFO'],)
       return SendErrorPage(response, httplib.NOT_FOUND, error_message)
 
-    method_handler = getattr(self, environ['REQUEST_METHOD'],
-                             self.DefaultMethodHandler)
-    method_handler(environ, response)
+    handlers = {
+      'GET': self.GET,
+      'POST': self.POST,
+    }
+    handler = handlers.get(environ['REQUEST_METHOD'], self.DefaultHandler)
+    return handler(environ, response)
 
-  def DefaultMethodHandler(self, environ, response):
+  def DefaultHandler(self, environ, response):
     error_message = 'Method not allowed: %s' % (environ['REQUEST_METHOD'],)
     return SendErrorPage(response, httplib.METHOD_NOT_ALLOWED, error_message)
 
   def POST(self, environ, response):
     field_storage = cgi.FieldStorage(fp=environ['wsgi.input'], environ=environ)
-    if kFileFieldName not in field_storage:
+    if FILE_FIELD_NAME not in field_storage:
       return SendErrorPage(response, httplib.PRECONDITION_FAILED,
-                           'No file data sent.')
-    upload_field = field_storage[kFileFieldName]
+                           'No file data recieved.')
+    upload_field = field_storage[FILE_FIELD_NAME]
     filename = UniqueLocalFilename(upload_field.filename)
     SaveFile(filename, upload_field.file)
     return SendUploadForm(response, filename)
@@ -102,12 +120,19 @@ class UploaderApp(object):
 def main():
   logging.basicConfig(level=logging.INFO)
 
-  # TODO use argparse for arguments
-  kDefaultPort= 8000
-  port_number = int(sys.argv[1]) if len(sys.argv) > 1 else kDefaultPort
+  parser = argparse.ArgumentParser(
+      description=('A simple HTTP server which allows files to be uploaded '
+                   'to the directory the server was started in.')
+  )
+  parser.add_argument('-p', '--port',
+      help='The port number to start the server on. Default is 8000.',
+      type=int,
+      default=8000,
+  )
+  args = parser.parse_args()
 
-  httpd = make_server('', port_number, UploaderApp())
-  logging.info('starting HTTP file upload server on port %d', port_number)
+  httpd = make_server('', args.port, UploaderApp())
+  logging.info('starting HTTP file upload server on port %d', args.port)
   httpd.serve_forever()
 
 if __name__ == '__main__':
